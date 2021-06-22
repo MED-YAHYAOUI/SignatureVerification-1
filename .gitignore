@@ -4,6 +4,14 @@ BHSig260-Hindi
 CEDAR
 ICDAR
 
+# temporary files
+temp.py
+temp.ipynb
+temp-checkpoint.ipynb
+
+# model
+model.h5
+
 # User-specific files
 *.rsuser
 *.suo
