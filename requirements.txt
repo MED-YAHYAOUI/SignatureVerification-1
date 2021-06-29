@@ -1,4 +1,6 @@
 tensorflow==2.4.1
 keras==2.4.3
 PyQt5==5.15.4
+tensorflow-addons==0.13.0
+pydot==1.4.2
 import-ipynb==0.5.1
