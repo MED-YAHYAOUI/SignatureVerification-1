@@ -1,3 +1,5 @@
+"""Model.
+"""
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import numpy as np
@@ -7,72 +9,116 @@ import keras.backend as K
 # model imports
 from keras.models import Sequential, Model, Input
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
-from keras.layers import Lambda
-from keras.initializers import RandomNormal
+from keras.layers import Lambda, BatchNormalization, ZeroPadding2D, Dropout
 from tensorflow.keras.regularizers import l2
 
 
-def build_model(shape):
-    # hyperparameters
-    initialize_weights = RandomNormal(mean=0.0, stddev=0.01)
-    initialize_bias = RandomNormal(mean=0.5, stddev=0.01)
+def euclidean_distance(vects):
+    """Compute Euclidean Distance between two vectors.
+
+    Euclidean distance is defined as the length of a line
+    segment between the two points.
+
+    d(p,q) = √ [Σ(qi – pi)^2]
+
+    Args:
+        vects : vectors
+
+    Returns:
+        euclidean distance between vects.
+    """
+    x, y = vects
+    return K.sqrt(K.sum(K.square(x - y), axis=1, keepdims=True))
+
+
+def eucl_dist_output_shape(shapes):
+    """Returns shape.
+
+    Args:
+        shapes : shape of euclidean distance.
+
+    Returns:
+        Shape of euclidean distance.
+    """
+    shape1, shape2 = shapes
+    return (shape1[0], 1)
+
+
+def build_model(shape=(224,224,1)):
+    """Build CNN siamese model.
+
+    Args:
+        shape -- tuple : input shape of (224, 224, 1).
+
+    Returns:
+        model -- keras.models.Model : siamese model.
+    """
 
     in_left = Input(shape=shape, name="left_input")
     in_right = Input(shape=shape, name="right_input")
 
-    # Sequential network
+    # sequential network
     network = Sequential(name="sequential_network")
 
-    # first layer - Convolutional
-    network.add(Conv2D(64, (10, 10), activation='relu',
+    # 1 convolutional
+    network.add(Conv2D(96, (11, 11), activation='relu',
                        input_shape=shape,
-                       kernel_initializer=initialize_weights,
+                       strides=4,
+                       kernel_initializer='glorot_uniform',
                        kernel_regularizer=l2(2e-4)))
-    network.add(MaxPooling2D())
+    network.add(BatchNormalization(axis=1, momentum=0.9, epsilon=1e-06))
+    network.add(MaxPooling2D((3, 3), strides=(2, 2)))
+    network.add(ZeroPadding2D((2, 2)))
 
-    # second layer - Convolutional
-    network.add(Conv2D(128, (7, 7), activation='relu',
-                       kernel_initializer=initialize_weights,
-                       bias_initializer=initialize_bias,
+    # 2 convolutional
+    network.add(Conv2D(256, (5, 5), activation='relu',
+                       strides=1,
+                       kernel_initializer='glorot_uniform',
                        kernel_regularizer=l2(2e-4)))
-    network.add(MaxPooling2D())
+    network.add(BatchNormalization(axis=1, momentum=0.9, epsilon=1e-06))
+    network.add(Dropout(0.3))
+    network.add(MaxPooling2D((3, 3), strides=(2, 2)))
+    network.add(ZeroPadding2D((2, 2)))
 
-    # third layer - Convolutional
-    network.add(Conv2D(128, (4, 4), activation='relu',
-                       kernel_initializer=initialize_weights,
-                       bias_initializer=initialize_bias,
+    # 3 convolutional
+    network.add(Conv2D(384, (3, 3), activation='relu',
+                       strides=1,
+                       kernel_initializer='glorot_uniform',
                        kernel_regularizer=l2(2e-4)))
-    network.add(MaxPooling2D())
+    network.add(ZeroPadding2D((2, 2)))
 
-    # fourth layer - Convolutional
-    network.add(Conv2D(256, (4, 4), activation='relu',
-                       kernel_initializer=initialize_weights,
-                       bias_initializer=initialize_bias,
+    # 4 convolutional
+    network.add(Conv2D(256, (3, 3), activation='relu',
+                       strides=1,
+                       kernel_initializer='glorot_uniform',
                        kernel_regularizer=l2(2e-4)))
+    network.add(MaxPooling2D((3, 3), strides=(2, 2)))
+    network.add(Dropout(0.3))
 
     # flatten the output
     network.add(Flatten())
-    network.add(Dense(512, activation='sigmoid',
+    # 1 dense layer
+    network.add(Dense(1024, activation='relu',
                       kernel_regularizer=l2(1e-3),
-                      kernel_initializer=initialize_weights,
-                      bias_initializer=initialize_bias))
+                      kernel_initializer='glorot_uniform'))
+
+    # 2 dense layer
+    network.add(Dense(128, activation='sigmoid',
+                      kernel_regularizer=l2(1e-3),
+                      kernel_initializer='glorot_uniform'))
 
     # encodings for the 2 image inputs
     em_left = network(in_left)
     em_right = network(in_right)
 
     # customized layer to compute the absolute difference between the encodings
-    L1_layer = Lambda(lambda tensors: K.abs(tensors[0] - tensors[1]))
-    L1_distance = L1_layer([em_left, em_right])
-
-    # final similarity score prediction
-    prediction = Dense(1, activation='sigmoid',
-                       bias_initializer=initialize_bias)(L1_distance)
+    distance = Lambda(euclidean_distance, output_shape=eucl_dist_output_shape)(
+        [em_left, em_right])
 
     # connecting the inputs with the outputs
     model = Model(
         inputs=[in_left, in_right],
-        outputs=prediction
+        outputs=distance
     )
 
     return model

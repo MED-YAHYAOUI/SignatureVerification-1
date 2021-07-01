@@ -1,5 +1,7 @@
 """Main Gui application for visualizing the results.
 """
+from model import build_model
+
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
@@ -25,12 +27,6 @@ QPushButton::pressed { background-color: rgba(220, 138, 255, 0.5);
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
-        print("loading model...", end="")
-        self.model = load_model("model\\model.h5")
-
-        print("model loaded\nopening gui!")
-
         self.setWindowTitle("Signature Forgery Detection")
         self.resize(800, 600)
         self.setMinimumSize(QtCore.QSize(800, 600))
@@ -78,7 +74,7 @@ class MainWindow(QMainWindow):
         # original image ######################################################################
         self.original = QtWidgets.QLabel(self.widget)
         self.original.setMinimumSize(QtCore.QSize(230, 230))
-        self.original.setText("TextLabel")
+        self.original.setText("Original Image")
         self.original.setScaledContents(True)
         self.original.setAlignment(QtCore.Qt.AlignCenter)
         self.image_layout.addWidget(self.original, 0, 0, 2, 1)
@@ -86,11 +82,12 @@ class MainWindow(QMainWindow):
         # upload original button #####
         self.upload_original = QtWidgets.QPushButton(self.widget)
         self.upload_original.setMinimumSize(QtCore.QSize(230, 50))
-        self.upload_original.setText("Upload image to be checked")
+        self.upload_original.setText("Upload original signature")
         font.setFamily("Courier")
         font.setPointSize(8)
         self.upload_original.setFont(font)
         self.upload_original.clicked.connect(self.click_upload)
+        self.upload_original.setEnabled(False)
         self.image_layout.addWidget(self.upload_original, 2, 0, 1, 1)
 
         # answer to - is it a forgery? ######################################################################
@@ -114,23 +111,38 @@ class MainWindow(QMainWindow):
         self.detection.setAlignment(QtCore.Qt.AlignCenter)
         self.image_layout.addWidget(self.detection, 1, 1, 1, 1)
 
-        # forgery image ######################################################################
-        # self.forgery = QtWidgets.QLabel(self.widget)
-        # self.forgery.setMinimumSize(QtCore.QSize(230, 230))
-        # self.forgery.setText("TextLabel")
-        # self.forgery.setScaledContents(True)
-        # self.forgery.setAlignment(QtCore.Qt.AlignCenter)
-        # self.image_layout.addWidget(self.forgery, 0, 2, 2, 1)
+        # check image ######################################################################
+        self.start_check = QtWidgets.QComboBox(self.widget)
+        self.start_check.setMinimumSize(QtCore.QSize(230, 50))
+        self.start_check.addItem("CEDAR verification")
+        self.start_check.addItem("BhSig Bengali verification")
+        self.start_check.addItem("BhSig Hindi verification")
+        font.setFamily("Courier")
+        font.setPointSize(8)
+        self.start_check.setFont(font)
 
-        # # upload forgery button #####
-        # self.upload_forgery = QtWidgets.QPushButton(self.widget)
-        # self.upload_forgery.setMinimumSize(QtCore.QSize(230, 50))
-        # self.upload_forgery.setText("Upload image to be checked")
-        # font.setFamily("Courier")
-        # font.setPointSize(8)
-        # self.upload_forgery.setFont(font)
-        # self.upload_forgery.clicked.connect(self.click_upload)
-        # self.image_layout.addWidget(self.upload_forgery, 2, 2, 1, 1)
+        self.start_check.activated[str].connect(self.check_image)
+        self.start_check.setEnabled(False)
+        self.image_layout.addWidget(self.start_check, 2, 1, 1, 1)
+
+        # forgery image ######################################################################
+        self.forgery = QtWidgets.QLabel(self.widget)
+        self.forgery.setMinimumSize(QtCore.QSize(230, 230))
+        self.forgery.setText("Verification Image")
+        self.forgery.setScaledContents(True)
+        self.forgery.setAlignment(QtCore.Qt.AlignCenter)
+        self.image_layout.addWidget(self.forgery, 0, 2, 2, 1)
+
+        # upload forgery button #####
+        self.upload_forgery = QtWidgets.QPushButton(self.widget)
+        self.upload_forgery.setMinimumSize(QtCore.QSize(230, 50))
+        self.upload_forgery.setText("Upload signature for checking")
+        font.setFamily("Courier")
+        font.setPointSize(8)
+        self.upload_forgery.setFont(font)
+        self.upload_forgery.clicked.connect(self.click_upload)
+        self.upload_forgery.setEnabled(False)
+        self.image_layout.addWidget(self.upload_forgery, 2, 2, 1, 1)
 
         self.main_layout.addWidget(self.widget, 2, 0, 1, 1)
         self.setCentralWidget(self.centralwidget)
@@ -146,28 +158,90 @@ class MainWindow(QMainWindow):
         # statusbar ######################################################################
         self.statusbar = QtWidgets.QStatusBar(self)
         self.setStatusBar(self.statusbar)
+
+        self.load_model()
+    
+    def load_model(self):
+        self.answer.setText("loading model...")
+        self.cedar_model = build_model()
+        self.cedar_model.load_weights(
+            "weights\\cedar_weights\\cedar_siamese.h5")
+
+        self.bh_bengali_model = build_model()
+        self.bh_bengali_model.load_weights(
+            "weights\\bh_bengali_weights\\bh_bengali_siamese.h5")
+
+        self.bh_hindi_model = build_model()
+        self.bh_hindi_model.load_weights(
+            "weights\\bh_hindi_weights\\bh_hindi_siamese.h5")
+
+        self.answer.setText("Models loaded!")
+
+        self.upload_original.setEnabled(True)
+        self.upload_forgery.setEnabled(True)
     
     def click_upload(self):
+        sender = self.sender().text()
         home_dir = str(os.getcwd())
-        img = QtWidgets.QFileDialog.getOpenFileName(None, 'Open File', home_dir)[0]
+        img_path = QtWidgets.QFileDialog.getOpenFileName(None, 'Open File', home_dir)[0]
 
-        self.original.setPixmap(QtGui.QPixmap(img))
-        self.check_image(img)
+        if 'original' in sender:
+            self.original.setPixmap(QtGui.QPixmap(img_path))
+            self.anchor_path = img_path
+        elif 'check' in sender:
+            self.forgery.setPixmap(QtGui.QPixmap(img_path))
+            self.pred_path = img_path
 
-    def check_image(self, img):
-        data = []
+            # enable check signature combobox
+            self.start_check.setEnabled(True)
+    
+    def preprocess_image(self, img_path):
+        """Preprocess images.
 
-        img = cv2.imread(img)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        Args:
+            img_path -- str : path to img.
+
+        Returns:
+            img -- np.array : processed image.
+        """
+        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
         img = cv2.resize(img, (224, 224))
+        img = np.reshape(img, (224, 224, 1)) / 255
 
-        data.append(img)
-        data = np.array(data)/255.0
-        data = data.reshape(-1, 224, 224, 3)
+        return img
 
-        pred = self.model.predict(data)
-        pred = np.argmax(pred, axis=1)[0]
-        self.detection.setText(f'Prediction: {pred}')
+    def check_image(self, model_name):
+
+        if 'CEDAR' in model_name:
+            model = self.cedar_model
+            thresh = 0.28
+
+        elif 'Bengali' in model_name:
+            model = self.bh_bengali_model
+            thresh = 0.21
+
+        elif 'Hindi' in model_name:
+            model = self.bh_hindi_model
+            thresh = 0.05
+        
+        data = [np.zeros((1, 224, 224, 1)) for _ in range(2)]
+
+        a_img = self.preprocess_image(self.anchor_path)
+        p_img = self.preprocess_image(self.pred_path)
+
+        data[0][0] = a_img
+        data[1][0] = p_img
+
+        pred = model.predict(data)
+
+        if pred.ravel() <= thresh:
+            text = 'GENUINE SIGNATURE'
+        else:
+            text = 'FORGERY SIGNATURE'
+        self.detection.setText(text)
+
+        # diable check signature combobox
+        self.start_check.setEnabled(False)
 
 
 if __name__ == "__main__":
