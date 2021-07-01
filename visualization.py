@@ -3,7 +3,7 @@
 from model import build_model
 
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import sys
 
 import numpy as np
@@ -12,7 +12,17 @@ import cv2
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from keras.models import load_model
+path1 = "weights\\cedar_weights\\cedar_siamese3.h5"
+path2 = "weights\\bh_bengali_weights\\bh_bengali_siamese3.h5"
+path3 = "weights\\bh_hindi_weights\\bh_hindi_siamese3.h5"
+
+thresholds = {'1': [0.28, 0.21, 0.09],
+              '2': [0.21, 0.10, 0.09],
+              '3': [0.05, 0.11, 0.05]}
+
+thresh1 = thresholds['1'][2]
+thresh2 = thresholds['2'][2]
+thresh3 = thresholds['3'][2]
 
 button_style = """QWidget { border: 1px solid #000; }
 QPushButton { background-color: rgb(255, 255, 255);
@@ -28,14 +38,15 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Signature Forgery Detection")
-        self.resize(800, 600)
+        self.resize(1000, 600)
         self.setMinimumSize(QtCore.QSize(800, 600))
 
         font = QtGui.QFont()
 
         # central widget ######################################################################
         self.centralwidget = QtWidgets.QWidget(self)
-        self.centralwidget.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.centralwidget.setStyleSheet(
+            "background-color: rgb(255, 255, 255);")
         self.main_layout = QtWidgets.QGridLayout(self.centralwidget)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(5)
@@ -160,30 +171,28 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
 
         self.load_model()
-    
+
     def load_model(self):
         self.answer.setText("loading model...")
         self.cedar_model = build_model()
-        self.cedar_model.load_weights(
-            "weights\\cedar_weights\\cedar_siamese.h5")
+        self.cedar_model.load_weights(path1)
 
         self.bh_bengali_model = build_model()
-        self.bh_bengali_model.load_weights(
-            "weights\\bh_bengali_weights\\bh_bengali_siamese.h5")
+        self.bh_bengali_model.load_weights(path2)
 
         self.bh_hindi_model = build_model()
-        self.bh_hindi_model.load_weights(
-            "weights\\bh_hindi_weights\\bh_hindi_siamese.h5")
+        self.bh_hindi_model.load_weights(path3)
 
         self.answer.setText("Models loaded!")
 
         self.upload_original.setEnabled(True)
         self.upload_forgery.setEnabled(True)
-    
+
     def click_upload(self):
         sender = self.sender().text()
-        home_dir = str(os.getcwd())
-        img_path = QtWidgets.QFileDialog.getOpenFileName(None, 'Open File', home_dir)[0]
+        data_dir = str(os.getcwd()+'\\data')
+        img_path = QtWidgets.QFileDialog.getOpenFileName(
+            None, 'Open File', data_dir)[0]
 
         if 'original' in sender:
             self.original.setPixmap(QtGui.QPixmap(img_path))
@@ -194,7 +203,7 @@ class MainWindow(QMainWindow):
 
             # enable check signature combobox
             self.start_check.setEnabled(True)
-    
+
     def preprocess_image(self, img_path):
         """Preprocess images.
 
@@ -214,16 +223,16 @@ class MainWindow(QMainWindow):
 
         if 'CEDAR' in model_name:
             model = self.cedar_model
-            thresh = 0.28
+            thresh = thresh1
 
         elif 'Bengali' in model_name:
             model = self.bh_bengali_model
-            thresh = 0.21
+            thresh = thresh2
 
         elif 'Hindi' in model_name:
             model = self.bh_hindi_model
-            thresh = 0.05
-        
+            thresh = thresh3
+
         data = [np.zeros((1, 224, 224, 1)) for _ in range(2)]
 
         a_img = self.preprocess_image(self.anchor_path)
@@ -235,10 +244,14 @@ class MainWindow(QMainWindow):
         pred = model.predict(data)
 
         if pred.ravel() <= thresh:
-            text = 'GENUINE SIGNATURE'
+            text = "GENUINE SIGNATURE"
+            color = "color: rgb(60, 207, 79);"
         else:
-            text = 'FORGERY SIGNATURE'
+            text = "FORGERY SIGNATURE"
+            color = "color: rgb(207, 60, 60);"
+
         self.detection.setText(text)
+        self.detection.setStyleSheet(color)
 
         # diable check signature combobox
         self.start_check.setEnabled(False)
