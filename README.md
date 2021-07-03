@@ -1,6 +1,9 @@
 # Signature Verification Program
 This is a handwritten signature verification program trained using a deep convolution neural network with it's visualition implemeted using PyQt5. The user can upload an original image and another image which will be checked with the original to verify whether it is an original signature or a forgery.
 
+## What my application does
+Coming soon
+
 ## Datasets used
 * [CEDAR Signature Dataset](https://paperswithcode.com/dataset/cedar-signature#:~:text=for%20signature%20verification-,CEDAR%20Signature%20is%20a%20database%20of%20off%2Dline%20signatures%20for,thereby%20creating%201%2C320%20genuine%20signatures.)
 has signatures in English. It contains 55 individuals’ signature samples. Each individual has 24 genuine signatures and 24 forged signatures.  
@@ -21,50 +24,35 @@ has signatures in Dutch and Chinese.
     * Chinese - It contains 10 individuals’ signature samples. Each individual has 24 genuine signatures and 12 forged signatures.  
     **Total: 240 genuines and 120 forgeries.**
 
-What your application does
 Why you used the technologies you used
-Some of the challenges you faced and features you hope to implement in the future
-
-## TODO
-1. Make Gui
-2. Make dataset
-3. Make CNN
-4. Train CNN
-5. Test CNN
 -->
 
-### File structure
+## File structure
+- preprocess.py (utility file)
+   - class PreProcess()
+   - class BinaryClassification(PreProcessing)
+   - class SiamesePairs(PreProcessing)
+   - class SiameseTriplets(PreProcessing)
 
-- create_dataset.ipynb
-    - draw_pics
-    - label_data
-    - build_dataset
-    - def get_batch_hard
-    - def get_batch_hall
-    - def draw_triplets
+- model.py (utility file)
+   - def binary_classifier
+   - def euclidean_distance
+   - def eucl_dist_output_shape
+   - def siamese_CNN
 
 - siamese_CNN.ipynb
-    - Network
-        - def build_network
-        - class TripletLossLayer
-        - def build_model
 
-    - Eval
-        - def compute_dist
-        - def compute_probs
-        - def compute_metrics
-        - def compute_interdist
-        - def draw_interdist
-        - def find_nearest
-        - def draw_roc
-        - def draw_test_image
+- binary_classification.ipynb
 
-- visualization : to test the model (GUI)
+- visualization.py (GUI)
 
 ## How to install
 Coming soon
 
 ## How to use
+Coming soon
+
+## Challenges faced and features to implement in the future
 Coming soon
 
 ## License
