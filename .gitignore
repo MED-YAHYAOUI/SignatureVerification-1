@@ -1,9 +1,13 @@
 # dataset
-BHSig260-Bengali
-BHSig260-Hindi
-CEDAR
-CEDAR-Copy
-ICDAR
+data
+# BHSig260-Bengali
+# BHSig260-Hindi
+# CEDAR
+# ICDAR
+# pickle-files
+# BHSig260-Bengali.zip
+# BHSig260-Hindi.zip
+# CEDAR.zip
 
 # temporary files
 temp.py
