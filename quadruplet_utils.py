@@ -268,6 +268,6 @@ def draw_roc(fpr, tpr, thresholds, auc, n_iteration):
 
 def draw_eval_quadruplets(network, n_iteration, X, Y):
     yprobs = Y
-    probs = compute_probs(network, X, Y)
+    probs = compute_probs(network, X)
     fpr, tpr, thresholds, auc = compute_metrics(yprobs, probs)
     draw_roc(fpr, tpr, thresholds, auc, n_iteration)

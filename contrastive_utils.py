@@ -263,6 +263,7 @@ def evaluation_plots(metrics, auc, threshold):
 
 
 def draw_eval_contrastive(network, pairs, targets):
-    pred = network.predict(pairs[0], pairs[1])
+    pairs = [pairs[0], pairs[1]]
+    pred = network.predict(pairs)
     acc, thresh, plot_metrics = compute_accuracy_roc(pred, targets)
     evaluation_plots(plot_metrics, acc, thresh)

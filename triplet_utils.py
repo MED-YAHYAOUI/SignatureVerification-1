@@ -11,24 +11,22 @@ find_nearest
 draw_roc
 draw_eval_triplets
 """
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.initializers import glorot_uniform
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Lambda, Flatten, Dense
+from tensorflow.keras.layers import Input, concatenate, Layer
+from tensorflow.keras.models import Sequential, Model
+import keras.backend as K
+from tqdm import tqdm
+import numpy as np
+import math
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import math
-import numpy as np
-from tqdm import tqdm
 
-import keras.backend as K
 
 # model imports
-from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Input, concatenate, Layer
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Lambda, Flatten, Dense
-from tensorflow.keras.initializers import glorot_uniform
-from tensorflow.keras.regularizers import l2
-
-from sklearn.metrics import roc_curve, roc_auc_score
-
-import matplotlib.pyplot as plt
 
 
 def embedding_net(embeddingsize, input_shape=(224, 224, 1)):
@@ -210,6 +208,6 @@ def draw_roc(fpr, tpr, thresholds, auc, n_iteration):
 
 def draw_eval_triplets(network, n_iteration, X, Y):
     yprobs = Y
-    probs = compute_probs(network, X, Y)
+    probs = compute_probs(network, X)
     fpr, tpr, thresholds, auc = compute_metrics(yprobs, probs)
     draw_roc(fpr, tpr, thresholds, auc, n_iteration)
