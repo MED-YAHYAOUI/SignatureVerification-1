@@ -1,4 +1,6 @@
 # Signature Verification Program
+[Check out the Wiki for detailed information](https://github.com/ikathuria/SignatureVerification/wiki)
+
 This is a handwritten signature verification program trained using a deep convolution neural network with it's visualition implemeted using PyQt5. The user can upload an original image and another image which will be checked with the original to verify whether it is an original signature or a forgery.
 
 ## What my application does
