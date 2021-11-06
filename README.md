@@ -16,33 +16,48 @@ has signatures in Bengali and Hindi.
     * Hindi - It contains 160 individuals’ signature samples. Each individual has 24 genuine signatures and 30 forged signatures.  
     **Total: 3840 genuines and 4800 forgeries.**
 
-<!--
-* [ICDAR Signature Dataset](http://www.iapr-tc11.org/mediawiki/index.php/ICDAR_2011_Signature_Verification_Competition_(SigComp2011))
-has signatures in Dutch and Chinese.
-    * Dutch - It contains 10 individuals’ signature samples. Each individual has 24 genuine signatures and 4 forged signatures.  
-    **Total: 240 genuines and 140 forgeries.**
-    * Chinese - It contains 10 individuals’ signature samples. Each individual has 24 genuine signatures and 12 forged signatures.  
-    **Total: 240 genuines and 120 forgeries.**
-
-Why you used the technologies you used
--->
-
 ## File structure
 - preprocess.py (utility file)
-   - class PreProcess()
-   - class BinaryClassification(PreProcessing)
-   - class SiamesePairs(PreProcessing)
-   - class SiameseTriplets(PreProcessing)
+    - class PreProcessing()
+    - class SiamesePairs(PreProcessing)
+    - class SiameseTriplets(PreProcessing)
+    - class SiameseQuadruplets(PreProcessing)
+    - class Evaluation(PreProcessing)
 
-- model.py (utility file)
-   - def binary_classifier
-   - def euclidean_distance
-   - def eucl_dist_output_shape
-   - def siamese_CNN
+- contrastive_utils.py (utility file)
+    - euclidean_distance
+    - eucl_dist_output_shape
+    - contrastive_loss
+    - embedding_net
+    - build_contrastive_model
+    - compute_accuracy_roc
+    - evaluation_plots
+    - draw_eval_contrastive
 
-- siamese_CNN.ipynb
+- triplet_utils.py (utility file)
+    - embedding_net
+    - TripletLossLayer
+    - build_triplet_model
+    - compute_l2_dist
+    - compute_probs
+    - compute_metrics
+    - find_nearest
+    - draw_roc
+    - draw_eval_triplets
 
-- binary_classification.ipynb
+- quadruplet_utils.py (utility file)
+    - embedding_net
+    - build_metric_network
+    - QuadrupletLossLayer
+    - build_quadruplet_model
+    - compute_l2_dist
+    - compute_probs
+    - compute_metrics
+    - find_nearest
+    - draw_roc
+    - draw_eval_quadruplets
+
+- CEDAR Verification.ipynb
 
 - visualization.py (GUI)
 
@@ -53,7 +68,7 @@ Coming soon
 Coming soon
 
 ## Challenges faced and features to implement in the future
-Coming soon
+To try a model implementation with a mixed dataset from all 3 scripts.
 
 ## License
 [MIT](/LICENSE)
