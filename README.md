@@ -4,7 +4,7 @@
     </a>
 </p>
 
-<h2 align="center">Offline Signature Verification</h2>
+<h3 align="center">Offline Signature Verification</h3>
 
 <div align="center">
 
