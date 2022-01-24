@@ -1,10 +1,10 @@
 <p align="center">
-    <a href="" rel="noopener">
+    <a href="resources\logo.png" rel="noopener">
         <img width=200px height=200px src="resources\logo.png" alt="Project logo">
     </a>
 </p>
 
-<h3 align="center">Offline Signature Verification</h3>
+<h2 align="center">Offline Signature Verification</h2>
 
 <div align="center">
 
@@ -25,14 +25,10 @@
 </p>
 
 ## 📝 Table of Contents
-
 - [About](https://github.com/ikathuria/SignatureVerification/wiki)
 - [Getting Started](#getting_started)
-- [Deployment](#deployment)
-- [Usage](#usage)
 - [Built Using](#built_using)
-- [TODO](../TODO.md)
-- [Acknowledgments](#acknowledgement)
+- [TODO](TODO.md)
 
 ## 🏁 Getting Started <a name = "getting_started"></a>
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. First, clone the repository.
