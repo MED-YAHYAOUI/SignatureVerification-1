@@ -1,6 +1,8 @@
 """Main Gui application for visualizing the results.
+
+
 """
-from model import build_model
+from scripts import contrastive_utils
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -8,22 +10,27 @@ import sys
 
 import numpy as np
 import cv2
+from tensorflow.keras import Model
+from tensorflow.keras.optimizers import Adam
 
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-path1 = "weights\\cedar_weights\\cedar_siamese3.h5"
-path2 = "weights\\bh_bengali_weights\\bh_bengali_siamese3.h5"
-path3 = "weights\\bh_hindi_weights\\bh_hindi_siamese3.h5"
+# paths to weights
+path1 = "weights\CEDAR_2x_1.h5"
+path2 = "weights\CEDAR_3x_2.h5"
+path3 = "weights\CEDAR_4x_2.h5"
 
-thresholds = {'1': [0.28, 0.21, 0.09],
-              '2': [0.21, 0.10, 0.09],
-              '3': [0.05, 0.11, 0.05]}
+# thresholds
+thresholds = {'1': 0.497,
+              '2': 0.011535835,
+              '3': 0.012432335}
 
-thresh1 = thresholds['1'][2]
-thresh2 = thresholds['2'][2]
-thresh3 = thresholds['3'][2]
+thresh1 = thresholds['1']
+thresh2 = thresholds['2']
+thresh3 = thresholds['3']
 
+# stylesheet
 button_style = """QWidget { border: 1px solid #000; }
 QPushButton { background-color: rgb(255, 255, 255);
               color: rgb(0, 0, 0);
@@ -125,9 +132,9 @@ class MainWindow(QMainWindow):
         # check image ######################################################################
         self.start_check = QtWidgets.QComboBox(self.widget)
         self.start_check.setMinimumSize(QtCore.QSize(230, 50))
-        self.start_check.addItem("CEDAR verification")
-        self.start_check.addItem("BhSig Bengali verification")
-        self.start_check.addItem("BhSig Hindi verification")
+        self.start_check.addItem("contrastive verification")
+        self.start_check.addItem("triplets verification")
+        self.start_check.addItem("quadruplets verification")
         font.setFamily("Courier")
         font.setPointSize(8)
         self.start_check.setFont(font)
@@ -173,16 +180,42 @@ class MainWindow(QMainWindow):
         self.load_model()
 
     def load_model(self):
-        self.answer.setText("loading model...")
-        self.cedar_model = build_model()
-        self.cedar_model.load_weights(path1)
+        print('loading models')
+        self.answer.setText("loading models...")
+        INPUT_SHAPE = (224, 224, 1)
+        embeddingsize = 10
+        optimizer = Adam(lr=0.00006)
 
-        self.bh_bengali_model = build_model()
-        self.bh_bengali_model.load_weights(path2)
+        # contrastive model
+        self.cedar_2 = contrastive_utils.build_contrastive_model(INPUT_SHAPE)
+        self.cedar_2.compile(loss=contrastive_utils.contrastive_loss,
+                             optimizer=optimizer)
+        self.cedar_2.load_weights(path1)
 
-        self.bh_hindi_model = build_model()
-        self.bh_hindi_model.load_weights(path3)
+        # # triplet model
+        # network = triplet_utils.build_triplet_model(
+        #     INPUT_SHAPE,
+        #     triplet_utils.embedding_net(embeddingsize, INPUT_SHAPE),
+        #     margin=1)
+        # network.compile(loss=None, optimizer=optimizer)
+        # network.load_weights(path2)
+        # self.cedar_3 = Model(network.layers[-2].input,
+        #                      network.layers[-2].output)
 
+        # # quadruplet model
+        # network = quadruplet_utils.build_quadruplet_model(
+        #     INPUT_SHAPE,
+        #     quadruplet_utils.embedding_net(embeddingsize, INPUT_SHAPE),
+        #     quadruplet_utils.build_metric_network([embeddingsize]),
+        #     margin=1,
+        #     margin2=0.5
+        # )
+        # network.compile(loss=None, optimizer=optimizer)
+        # network.load_weights(path3)
+        # self.cedar_4 = Model(network.layers[-6].input,
+        #                      network.layers[-6].output)
+
+        # all models loaded
         self.answer.setText("Models loaded!")
 
         self.upload_original.setEnabled(True)
@@ -213,26 +246,35 @@ class MainWindow(QMainWindow):
         Returns:
             img -- np.array : processed image.
         """
-        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-        img = cv2.resize(img, (224, 224))
+        image = cv2.imread(img_path)
+
+        # removing background and thresholding
+        # for a well defined input
+        result = image.copy()
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        lower = np.array([0, 0, 0])
+        upper = np.array([226, 226, 226])
+        mask = cv2.inRange(image, lower, upper)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+        close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+        result[close == 0] = (255, 255, 255)
+
+        retouch_mask = (result <= [250., 250., 250.]).all(axis=2)
+        result[retouch_mask] = [0, 0, 0]
+
+        # to grayscale
+        result = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+
+        # resizing and reshaping for input
+        img = cv2.resize(result, (224, 224))
         img = np.reshape(img, (224, 224, 1)) / 255
 
         return img
 
     def check_image(self, model_name):
-
-        if 'CEDAR' in model_name:
-            model = self.cedar_model
-            thresh = thresh1
-
-        elif 'Bengali' in model_name:
-            model = self.bh_bengali_model
-            thresh = thresh2
-
-        elif 'Hindi' in model_name:
-            model = self.bh_hindi_model
-            thresh = thresh3
-
         data = [np.zeros((1, 224, 224, 1)) for _ in range(2)]
 
         a_img = self.preprocess_image(self.anchor_path)
@@ -241,7 +283,29 @@ class MainWindow(QMainWindow):
         data[0][0] = a_img
         data[1][0] = p_img
 
-        pred = model.predict(data)
+        if 'contrastive' in model_name:
+            model = self.cedar_2
+            thresh = thresh1
+            pred = model.predict(data)
+
+        elif 'triplet' in model_name:
+            model = self.cedar_3
+            thresh = thresh2
+            pred = np.sum(
+                np.square(
+                    model.predict(a_img)-model.predict(p_img)
+                ))
+
+        elif 'quadruplet' in model_name:
+            model = self.cedar_4
+            thresh = thresh3
+            pred = np.sum(
+                np.square(
+                    model.predict(a_img)-model.predict(p_img)
+                ))
+
+        self.answer.setText(
+            "Distance : %.3f\nThreshold : %.3f" % (pred, thresh))
 
         if pred.ravel() <= thresh:
             text = "GENUINE SIGNATURE"

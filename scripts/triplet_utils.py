@@ -1,16 +1,15 @@
-"""Quadruplet loss utility functions.
+"""Triplet loss utility functions.
 
 embedding_net
-build_metric_network
-QuadrupletLossLayer
-build_quadruplet_model
+TripletLossLayer
+build_triplet_model
 
 compute_l2_dist
 compute_probs
 compute_metrics
 find_nearest
 draw_roc
-draw_eval_quadruplets
+draw_eval_triplets
 """
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -20,9 +19,10 @@ from tqdm import tqdm
 
 import keras.backend as K
 
+# model imports
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.layers import Input, concatenate, Layer
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Lambda, Flatten, Dense, Concatenate
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Lambda, Flatten, Dense
 from tensorflow.keras.initializers import glorot_uniform
 from tensorflow.keras.regularizers import l2
 
@@ -31,7 +31,6 @@ from sklearn.metrics import roc_curve, roc_auc_score
 import matplotlib.pyplot as plt
 
 
-# Model ##################################################################################
 def embedding_net(embeddingsize, input_shape=(224, 224, 1)):
     """Embedding network.
 
@@ -86,114 +85,57 @@ def embedding_net(embeddingsize, input_shape=(224, 224, 1)):
     return network
 
 
-def build_metric_network(single_embedding_shape):
-    '''
-    Define the neural network to learn the metric
-    Input : 
-            single_embedding_shape : shape of input embeddings or feature map. Must be an array
-
-    '''
-    # compute shape for input
-    input_shape = single_embedding_shape
-    # the two input embeddings will be concatenated
-    input_shape[0] = input_shape[0]*2
-
-    # Neural Network
-    network = Sequential(name="learned_metric")
-    network.add(Dense(10, activation='relu',
-                      input_shape=input_shape,
-                      kernel_regularizer=l2(1e-3),
-                      kernel_initializer='he_uniform'))
-    network.add(Dense(10, activation='relu',
-                      kernel_regularizer=l2(1e-3),
-                      kernel_initializer='he_uniform'))
-    network.add(Dense(10, activation='relu',
-                      kernel_regularizer=l2(1e-3),
-                      kernel_initializer='he_uniform'))
-
-    # Last layer : binary softmax
-    network.add(Dense(2, activation='softmax'))
-
-    # Select only one output value from the softmax
-    network.add(Lambda(lambda x: x[:, 0]))
-
-    return network
-
-
-class QuadrupletLossLayer(Layer):
-    def __init__(self, alpha=1, beta=0.5, **kwargs):
+class TripletLossLayer(Layer):
+    def __init__(self, alpha=1, **kwargs):
         self.alpha = alpha
-        self.beta = beta
-        self.debugeric = 1
+        super(TripletLossLayer, self).__init__(**kwargs)
 
-        super(QuadrupletLossLayer, self).__init__(**kwargs)
-
-    def quadruplet_loss(self, inputs):
-        ap_dist, an_dist, nn_dist = inputs
-
-        # square
-        ap_dist2 = K.square(ap_dist)
-        an_dist2 = K.square(an_dist)
-        nn_dist2 = K.square(nn_dist)
-
-        return K.sum(K.maximum(ap_dist2 - an_dist2 + self.alpha, 0), axis=0) + K.sum(K.maximum(ap_dist2 - nn_dist2 + self.beta, 0), axis=0)
+    def triplet_loss(self, inputs):
+        anchor, positive, negative = inputs
+        p_dist = K.sum(K.square(anchor-positive), axis=-1)
+        n_dist = K.sum(K.square(anchor-negative), axis=-1)
+        return K.sum(K.maximum(p_dist - n_dist + self.alpha, 0), axis=0)
 
     def call(self, inputs):
-        loss = self.quadruplet_loss(inputs)
+        loss = self.triplet_loss(inputs)
         self.add_loss(loss)
         return loss
 
 
-def build_quadruplet_model(input_shape, network, metricnetwork, margin=1, margin2=0.5):
-    '''
-    Define the Keras Model for training 
-        Input : 
-            input_shape : shape of input images
-            network : Neural network to train outputing embeddings
-            metricnetwork : Neural network to train the learned metric
-            margin : minimal distance between Anchor-Positive and Anchor-Negative for the lossfunction (alpha1)
-            margin2 : minimal distance between Anchor-Positive and Negative-Negative2 for the lossfunction (alpha2)
+def build_triplet_model(input_shape, network, margin=1):
+    """Define the Keras Model for training 
 
-    '''
-    # Define the tensors for the four input images
+    Args : 
+        input_shape -- tuple : shape of input images.
+        network : Neural network to train outputing embeddings.
+        margin -- float : minimal distance between Anchor-Positive and
+                          Anchor-Negative for the lossfunction (alpha).
+    """
+    # Define the tensors for the three input images
     anchor_input = Input(input_shape, name="anchor_input")
     positive_input = Input(input_shape, name="positive_input")
     negative_input = Input(input_shape, name="negative_input")
-    negative2_input = Input(input_shape, name="negative2_input")
 
-    # Generate the encodings (feature vectors) for the four images
+    # Generate the encodings (feature vectors) for the three images
     encoded_a = network(anchor_input)
     encoded_p = network(positive_input)
     encoded_n = network(negative_input)
-    encoded_n2 = network(negative2_input)
 
-    # compute the concatenated pairs
-    encoded_ap = Concatenate(
-        axis=-1, name="Anchor-Positive")([encoded_a, encoded_p])
-    encoded_an = Concatenate(
-        axis=-1, name="Anchor-Negative")([encoded_a, encoded_n])
-    encoded_nn = Concatenate(
-        axis=-1, name="Negative-Negative2")([encoded_n, encoded_n2])
-
-    # compute the distances AP, AN, NN
-    ap_dist = metricnetwork(encoded_ap)
-    an_dist = metricnetwork(encoded_an)
-    nn_dist = metricnetwork(encoded_nn)
-
-    # QuadrupletLoss Layer
-    loss_layer = QuadrupletLossLayer(alpha=margin, beta=margin2, name='4xLoss')([
-        ap_dist, an_dist, nn_dist])
+    # TripletLoss Layer
+    loss_layer = TripletLossLayer(alpha=margin, name='3xLoss')(
+        [encoded_a, encoded_p, encoded_n])
 
     # Connect the inputs with the outputs
     network_train = Model(
-        inputs=[anchor_input, positive_input, negative_input, negative2_input],
-        outputs=loss_layer)
+        inputs=[anchor_input, positive_input, negative_input],
+        outputs=loss_layer
+    )
 
     # return the model
     return network_train
 
 
-# EVALUATION ##################################################################################
+# EVALUATION ######################################################################################
 def compute_l2_dist(a, b):
     return np.sum(np.square(a-b))
 
@@ -215,9 +157,9 @@ def compute_probs(network, X):
     m = left.shape[0]
     probs = np.zeros((m))
 
-    for i in tqdm(range(m), desc='QUADRUPLETS PROBS'):
-        emb_left = network.predict(left[m].reshape(1, 224, 224, 1))
-        emb_right = network.predict(right[m].reshape(1, 224, 224, 1))
+    for i in tqdm(range(m-1), desc='TRIPLETS PROBS'):
+        emb_left = network.predict(left[i].reshape(1, 224, 224, 1))
+        emb_right = network.predict(right[i].reshape(1, 224, 224, 1))
         probs[i] = -compute_l2_dist(emb_left, emb_right)
 
     return probs
@@ -259,6 +201,8 @@ def draw_roc(fpr, tpr, thresholds, auc, n_iteration):
     plt.plot([0, 1], [0, 1], linestyle='--')
     # plot the roc curve for the model
     plt.plot(fpr, tpr, marker='.')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
     plt.title('AUC: {0:.3f} @ {4} iterations\nSensitivity : {2:.1%} @FPR={1:.0e}\nThreshold={3})'.format(
         auc, targetfpr, recall, abs(threshold), n_iteration
     ))
@@ -266,7 +210,7 @@ def draw_roc(fpr, tpr, thresholds, auc, n_iteration):
     plt.show()
 
 
-def draw_eval_quadruplets(network, n_iteration, X, Y):
+def draw_eval_triplets(network, n_iteration, X, Y):
     yprobs = Y
     probs = compute_probs(network, X)
     fpr, tpr, thresholds, auc = compute_metrics(yprobs, probs)

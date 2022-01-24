@@ -22,6 +22,8 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 from tensorflow.keras.layers import Lambda, BatchNormalization, ZeroPadding2D, Dropout
 from tensorflow.keras.regularizers import l2
 
+from sklearn.metrics import roc_curve, roc_auc_score
+
 import matplotlib.pyplot as plt
 
 
@@ -191,10 +193,11 @@ def compute_accuracy_roc(predictions, labels):
     nsame = np.sum(labels == 1)  # similar
     ndiff = np.sum(labels == 0)  # different
 
-    step = 0.01
+    step = 0.001
     max_acc = 0
     best_thresh = -1
 
+    tpr_plot = []
     frr_plot = []
     far_plot = []
     pr_plot = []
@@ -222,43 +225,43 @@ def compute_accuracy_roc(predictions, labels):
 
         far = fp / (fp + tn)
         frr = fn / (fn + tp)
+
+        tpr_plot.append(tpr)
         frr_plot.append(frr)
         pr_plot.append(pr)
         re_plot.append(re)
         far_plot.append(far)
         ds.append(d)
 
-    plot_metrics = [ds, far_plot, frr_plot, pr_plot, re_plot]
+    plot_metrics = [ds, tpr_plot, far_plot, frr_plot, pr_plot, re_plot]
 
     return max_acc, best_thresh, plot_metrics
 
 
-def evaluation_plots(metrics, auc, threshold):
-    ds = metrics[0]
-    far_plot = metrics[1]
-    frr_plot = metrics[2]
-    pr_plot = metrics[3]
-    re_plot = metrics[4]
+def find_nearest(array, value):
+    idx = np.searchsorted(array, value, side="left")
+    if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
+        return array[idx-1], idx-1
+    else:
+        return array[idx], idx
 
-    fig, (ax1, ax2) = plt.subplots(1, 2)
-    fig.suptitle('AUC: {0:.3f} \nThreshold={1})'.format(
-        auc, abs(threshold)
+
+def draw_roc(fpr, tpr, threshold, auc, n_iteration):
+    # find threshold
+    targetfpr = 1e-3
+    _, idx = find_nearest(fpr, targetfpr)
+    recall = tpr[idx]
+
+    # plot no skill
+    plt.plot([0, 1], [0, 1], linestyle='--')
+    # plot the roc curve for the model
+    plt.plot(fpr, tpr, marker='.')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('AUC: {0:.3f} @ {4} iterations\nSensitivity : {2:.1%} @FPR={1:.0e}\nThreshold={3})'.format(
+        auc, targetfpr, recall, abs(threshold), n_iteration
     ))
-
-    # error rate
-    ax1.plot(ds, far_plot, color='red')
-    ax1.plot(ds, frr_plot, color='blue')
-    ax1.set_title('Error rate')
-    ax1.legend(['FAR', 'FRR'])
-    ax1.set(xlabel='Thresholds', ylabel='Error rate')
-
-    # precision-recall curve
-    ax2.plot(ds, pr_plot, color='green')
-    ax2.plot(ds, re_plot, color='magenta')
-    ax2.set_title('P-R curve')
-    ax2.legend(['Precision', 'Recall'])
-    ax2.set(xlabel='Thresholds', ylabel='Error rate')
-
+    # show the plot
     plt.show()
 
 
@@ -266,4 +269,5 @@ def draw_eval_contrastive(network, pairs, targets):
     pairs = [pairs[0], pairs[1]]
     pred = network.predict(pairs)
     acc, thresh, plot_metrics = compute_accuracy_roc(pred, targets)
-    evaluation_plots(plot_metrics, acc, thresh)
+    tpr, fpr = plot_metrics[1], plot_metrics[2]
+    draw_roc(fpr, tpr, thresh, acc, 10000)

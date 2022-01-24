@@ -123,11 +123,11 @@ class PreProcessing():
                                shape (n_classes, 2, INPUT SHAPE).
         """
         data = []
-        total_data = sorted(glob.glob(f"{data_path}\\*"))
+        total_data = sorted(glob.glob(f"{data_path}/*"))
         for dirs in tqdm(total_data, desc="LOADING DATASET"):
             pos = []
             neg = []
-            for img_path in sorted(glob.glob(f"{dirs}\\*")):
+            for img_path in sorted(glob.glob(f"{dirs}/*")):
                 img = self.preprocess_image(img_path)
 
                 # appending image
@@ -364,7 +364,6 @@ class SiameseTriplets(PreProcessing):
 
         return triplets
 
-
 # ###################################################################################################
 class SiameseQuadruplets(PreProcessing):
     """Siamese CNN quadruplets class for preprocessing.
@@ -472,76 +471,5 @@ class SiameseQuadruplets(PreProcessing):
                        x[1][:batch_size, :, :, :],
                        x[2][:batch_size, :, :, :],
                        x[3][:batch_size, :, :, :]]
-
-        return quadruplets
-
-
-# ###################################################################################################
-class Evaluation(PreProcessing):
-    """Siamese CNN quadruplets class for preprocessing.
-
-    Inheriting methods and variables from PreProcessing class.
-
-    Args:
-        name -- str : name of dataset.
-        data_path -- str : path to dataset.
-        save_path -- str : path to pickle files.
-        channels -- int : channels for images, by default `1`.
-        size -- int : size of images, by default `224`.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        self.test_set = os.path.join(
-            self.save_path, self.f_name+'test.pickle')
-
-        if os.path.exists(self.quadruplet_pickle) and self.reset == False:
-            with open(self.quadruplet_pickle, "rb") as f:
-                self.quadruplets = pickle.load(f)
-                print("\Test set loaded!\n")
-        else:
-            n_classes = self.train_images.shape[0]
-            self.quadruplets = self.get_all_quadruplets(n_classes*12)
-            self.save_pickle(self.f_name+'quadruplets.pickle',
-                             self.quadruplets)
-
-    def get_all_quadruplets(self, batch_size):
-        """Get batches.
-
-        Args:
-            batch_size -- int : batch size for model.
-            train -- bool : true if training, false for validation.
-
-        Returns:
-            quadruplets -- list : list of pairs.
-        """
-        X = self.train_images
-
-        # shape = (n_classes, 2, n_images, 224, 224, 1)
-        n_classes = X.shape[0]
-        p_len = len(X[0][0])
-        n_len = len(X[0][1])
-        # batch_size = min(n_classes, batch_size)*2
-
-        # initialize 2 empty arrays for the input image batch
-        quadruplets = [
-            np.zeros((batch_size, self.SIZE, self.SIZE, self.CHANNELS)) for _ in range(4)]
-
-        c = 0
-        for i in tqdm(range(batch_size), desc="LOADING QUADRUPLETS"):
-            c2 = random.randint(0, n_classes-1)
-            while c2 == c:
-                c2 = random.randint(0, n_classes-1)
-            a, p, n = self.get_index(p_len, n_len)
-            if c >= n_classes:
-                c = 0
-
-            quadruplets[0][i, :, :, :] = X[c][0][a]
-            quadruplets[1][i, :, :, :] = X[c][0][p]
-            quadruplets[2][i, :, :, :] = X[c][1][n]
-            quadruplets[3][i, :, :, :] = X[c2][1][a]
-
-            c += 1
 
         return quadruplets
