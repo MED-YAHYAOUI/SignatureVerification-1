@@ -104,7 +104,8 @@ class PreProcessing():
 
         # resizing and reshaping for input
         img = cv2.resize(result, (self.SIZE, self.SIZE))
-        img = np.reshape(img, self.INPUT_SHAPE) / 255
+        image = cv2.bitwise_not(img)
+        img = np.reshape(image, self.INPUT_SHAPE) / 255
 
         return img
 
